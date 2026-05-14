@@ -1,7 +1,7 @@
 # Initial Meeting
 
 ## Meeting Notes
-Project
+
 - Trying to figure out vivado and move motors
     - Need a chassis because the rover is broken
 - What do we actually want to happen in 2 and a half weeks?
