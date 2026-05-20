@@ -3,11 +3,15 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
-#define LED_PIN 3
+#include "motor.h"
+
+
 
 
 void app_main(void)
 {
+    motor_init();
+
     
 }
 
