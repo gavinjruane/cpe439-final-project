@@ -12,27 +12,101 @@
 #include "esp_bt_device.h"
 #include "esp_spp_api.h"
 
-#define BT_TAG "BLUETOOTH"
+#include "bluetooth.h"
 
 static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
 static const bool esp_spp_enable_l2cap_ertm = true;
 
-void bt_spp_callback (esp_spp_cb_event_t event, esp_spp_cb_param_t *param);
-void bt_gap_callback (esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
+static const esp_spp_sec_t security_mask = ESP_SPP_SEC_AUTHENTICATE;
+static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
+
+extern int global;
 
 void bt_spp_callback (esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
+    switch ( event ) {
+        case ESP_SPP_INIT_EVT:
+            // Initialization for SPP event
+            if ( param->init.status == ESP_SPP_SUCCESS ) {
+                ESP_LOGI(BT_TAG, "ESP_SPP_INIT_EVT");
+                esp_spp_start_srv(security_mask, role_slave, 0, SPP_SERVER);
+            } else {
+                ESP_LOGE(BT_TAG, "ESP_SPP_INIT_EVT failed");
+            }
+            break;
 
+        case ESP_SPP_START_EVT:
+            // Start server success event
+            if ( param->start.status == ESP_SPP_SUCCESS ) {
+                ESP_LOGI(BT_TAG, "ESP_SPP_START_EVT");
+                esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+            } else {
+                ESP_LOGE(BT_TAG, "ESP_SPP_START_EVT failed");
+            }
+            break;
+        
+        case ESP_SPP_DATA_IND_EVT:
+            // Data to receive event
+            global = 1;
+            break;
+
+        case ESP_SPP_SRV_OPEN_EVT:
+            // When SPP server connection opens event
+            ESP_LOGI(BT_TAG, "ESP_SPP_SRV_OPEN_EVT status:%d handle:%"PRIu32", rem_bda:[%s]", param->srv_open.handle);
+            break;
+
+        default:
+            ESP_LOGE(BT_TAG, "unhandled SPP event %d", event);
+            break;
+    }
 }
 
 void bt_gap_callback (esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
+    switch ( event ) {
+        case ESP_BT_GAP_AUTH_CMPL_EVT:
+            // Authentication complete event
+            if ( param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS ) {
+                ESP_LOGI(BT_TAG, "authentication success");
+            } else {
+                ESP_LOGE(BT_TAG, "authentication failure");
+            }
+            break;
 
+        case ESP_BT_GAP_PIN_REQ_EVT:
+            // Legacy PIN pairing code request event
+            ESP_LOGI(BT_TAG, "ESP_BT_GAP_PIN_REQ_EVT min_16_digit:%d", param->pin_req.min_16_digit);
+            if (param->pin_req.min_16_digit) {
+                ESP_LOGI(BT_TAG, "Input pin code: 0000 0000 0000 0000");
+                esp_bt_pin_code_t pin_code = {0};
+                esp_bt_gap_pin_reply(param->pin_req.bda, true, 16, pin_code);
+            } else {
+                ESP_LOGI(BT_TAG, "Input pin code: 1234");
+                esp_bt_pin_code_t pin_code;
+                pin_code[0] = '1';
+                pin_code[1] = '2';
+                pin_code[2] = '3';
+                pin_code[3] = '4';
+                esp_bt_gap_pin_reply(param->pin_req.bda, true, 4, pin_code);
+            }
+            break;
+
+        case ESP_BT_GAP_MODE_CHG_EVT:
+            // Mode change event
+            ESP_LOGI(BT_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+            break;
+
+        default:
+            ESP_LOGI(BT_TAG, "unhandled GAP event %d", event);
+            break;
+    }
 }
 
-void bt_init () {
+int bt_init (const char *device_name) {
     esp_err_t status = nvs_flash_init();
     esp_spp_cfg_t spp_config = {0};
 
     /* --- Bluetooth Controller Initialization --- */
+
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
     esp_bt_controller_config_t controller_config = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 
@@ -41,13 +115,18 @@ void bt_init () {
 
     if ( (status = esp_bt_controller_init(&controller_config)) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to initialize controller.");
-        return;
+        return -1;
     }
 
     /* Enable the Bluetooth Controller */
     if ( (status = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK ) {
-        ESP_LOGE(BT_TAG, "failed to enable controller.");
-        return;
+        ESP_LOGE(BT_TAG, "failed to enable controller, error %d.", status);
+        switch ( status ) {
+            case ESP_ERR_INVALID_STATE: printf("invalid state"); break;
+            case ESP_ERR_INVALID_ARG: printf("invalid argument"); break;
+            default: printf("something else"); break;
+        }
+        return -1;
     }
 
     /* --- Bluedroid Initialization --- */
@@ -56,26 +135,26 @@ void bt_init () {
 
     if ( (status = esp_bluedroid_init_with_cfg(&bluedroid_config)) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to initialize bluedroid");
-        return;
+        return -1;
     }
 
     if ( (status = esp_bluedroid_enable()) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to enable bluedroid");
-        return;
+        return -1;
     }
 
     /* --- GAP (Generic Access Profile) Initialization --- */
 
     if ( (status = esp_bt_gap_register_callback(bt_gap_callback)) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to register GAP callback");
-        return;
+        return -1;
     }
 
     /* --- SPP (Serial Port Profile) Initialization --- */
 
     if ( (status = esp_spp_register_callback(bt_spp_callback)) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to register SPP callback");
-        return;
+        return -1;
     }
 
     spp_config.mode = esp_spp_mode;
@@ -83,10 +162,19 @@ void bt_init () {
     spp_config.tx_buffer_size = 0;
     if ( (status = esp_spp_enhanced_init(&spp_config)) != ESP_OK ) {
         ESP_LOGE(BT_TAG, "failed to initialize SPP");
-        return;
+        return -1;
+    }
+
+    /* --- Set device name --- */
+
+    if ( (status = esp_bt_gap_set_device_name(device_name ? device_name : "ESP32-DEV")) != ESP_OK ) {
+        ESP_LOGE(BT_TAG, "failed to set device name");
+        return -1;
     }
 
     esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_VARIABLE;
     esp_bt_pin_code_t pin_code;
     esp_bt_gap_set_pin(pin_type, 0, pin_code);
+
+    return 0;
 }
