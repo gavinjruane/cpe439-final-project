@@ -75,3 +75,24 @@ Here are some immediate differences I have noticed:
 - The default `app_main()` function that is required is some kind of FreeRTOS task.
 - You are **not** supposed to edit the `FreeRTOSConfig.h` file like we have done for STM32. Instead, you are supposed to make any config changes through the SDK Configuration Editor.
     * You can access this with the "gear" icon on the bottom strip. From here, click on "Component config" and then "FreeRTOS." There are some familiar options in there.
+
+## Bluetooth
+
+### Connection Steps (for Linux)
+
+1. Connect to the ESP32 dev board through your system Bluetooth GUI or through `bluetoothctl` (it should be called "ESP32_DEVICE").
+    1. Note the Bluetooth address of the device. (It looks like a MAC address.)
+2. Bind the dev board to a serial port, where `<Bluetooth address>` is the address you wrote down earlier.
+
+	`sudo rfcomm bind rfcomm0 <Bluetooth address>`
+3. View the serial port using a serial console program like `screen` or `minicom`.
+4. When you are done, exit the serial console program and release the serial port.
+
+	`sudo rfcomm release rfcomm0`
+
+### Connection Steps (for Windows)
+
+1. Connect to the ESP32 dev board through the "Bluetooth & devices" pane in the Settings app.
+2. In Device Manager, under the "Ports (COM & LPT)" section, look for the Bluetooth serial port.
+    1. It is supposed to be called "Standard Serial over Bluetooth" or something like that.
+3. Connect to the device using your favorite serial console program like PuTTY or MobaXTerm.
