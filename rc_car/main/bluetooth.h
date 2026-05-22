@@ -14,9 +14,15 @@
 #define BT_TAG "BLUETOOTH"
 #define SPP_SERVER "SPP_SERVER"
 
-void bt_spp_callback (esp_spp_cb_event_t event, esp_spp_cb_param_t *param); 
-void bt_gap_callback (esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
+#define BT_DATA_BUFFER_SIZE 256
+
+struct bt_data {
+    size_t length;
+    char data[BT_DATA_BUFFER_SIZE];
+};
 
 int bt_init (const char *device_name);
+int bt_receive (struct bt_data *received_data, TickType_t delay);
+int bt_send (struct bt_data received_data, TickType_t delay);
 
 #endif
