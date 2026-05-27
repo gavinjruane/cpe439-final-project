@@ -1,2 +1,2 @@
-idf_component_register(SRCS "bluetooth.c" "main.c"
+idf_component_register(SRCS "bluetooth-main.c" "bluetooth.c"
                     INCLUDE_DIRS ".")
