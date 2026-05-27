@@ -1,16 +1,26 @@
-
 #ifndef MOTOR_DRIVER_H
 #define MOTOR_DRIVER_H
 
+#include "esp_err.h"
 
-#define BIN1 7
-#define BIN2 8
-#define PWMB 6
+esp_err_t motor_driver_init(void);
 
-/* Defined GPIO */
-#define PWMA D23
-#define STBY D22
-#define AIN2 D21 
-#define AIN2 D19
+void motor_enable(void);
+void motor_disable(void);
+void motor_stop(void);
+
+void motor_forward(float speed);
+void motor_backward(float speed);
+void motor_left(float speed);
+void motor_right(float speed);
+
+/*
+ * Direct differential drive control.
+ * left_speed/right_speed range:
+ * -1.0 = full reverse
+ *  0.0 = stop
+ *  1.0 = full forward
+ */
+void motor_drive(float left_speed, float right_speed);
 
 #endif
