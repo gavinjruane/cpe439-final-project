@@ -1,0 +1,6 @@
+<<<<<<< HEAD
+idf_component_register(SRCS "motor.c" "bluetooth-main.c" "bluetooth.c"
+=======
+idf_component_register(SRCS "motor_driver.c" "main.c"
+>>>>>>> 9662c02af3b30875cf8937b68dc61a83c411078a
+                    INCLUDE_DIRS ".")
