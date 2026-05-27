@@ -2,10 +2,17 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
 
 #include "bluetooth.h"
 
 #define GPIO_PIN_2 2
+
+#define FORWARD "Forward\r\n"
+#define BACKWARD "Backward\r\n"
+#define LEFT "Left\r\n"
+#define RIGHT "Right\r\n"
+#define UNKNOWN "Unknown\r\n"
 
 void bt_sample_task (void *argument);
 
@@ -59,9 +66,36 @@ void bt_sample_task (void *argument) {
             printf("ERROR receiving data from queue.\n");
         } else {
             printf("Data: %s, Length: %d\n", data.data, data.length);
-            struct bt_data send_this = { .data = "Received data.\r\n", .length = strlen("Received data.\n") };
-            if ( bt_send(send_this, portMAX_DELAY) == -1 ) {
-                printf("ERROR sending data to host\n");
+            struct bt_data response = { 0 };
+            
+            switch ( data.data[0] ) {
+                case 'w':
+                    strncpy(response.data, FORWARD, 64);
+                    response.data[strlen(FORWARD) + 1] = '\0';
+                    break;
+                case 'a':
+                    strncpy(response.data, LEFT, 64);
+                    response.data[strlen(LEFT) + 1] = '\0';
+                    break;
+                case 's':
+                    strncpy(response.data, BACKWARD, 64);
+                    response.data[strlen(BACKWARD) + 1] = '\0';
+                    break;
+                case 'd':
+                    strncpy(response.data, RIGHT, 64);
+                    response.data[strlen(RIGHT) + 1] = '\0';
+                    break;
+                default:
+                    ESP_LOGI("motor", "unknown command");
+                    strncpy(response.data, UNKNOWN, 64);
+                    response.data[strlen(UNKNOWN) + 1] = '\0';
+                    break;
+            }
+
+            response.length = strlen(response.data);
+
+            if ( bt_send(response, portMAX_DELAY) == -1 ) { 
+                printf("ERROR sending data to client\n");
             }
         }
 
