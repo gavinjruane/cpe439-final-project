@@ -152,8 +152,10 @@ int bt_init (const char *device_name) {
 
 
 int bt_receive (struct bt_data *received_data, TickType_t delay) {
+    memset(received_data, 0, sizeof(struct bt_data));
+
     if ( xQueueReceive(receive_queue, (void *) received_data, delay) == errQUEUE_EMPTY ) {
-        ESP_LOGE(BT_TAG, "Queue was empty, so aborted.");
+        // ESP_LOGE(BT_TAG, "Queue was empty, so aborted.");
         return -1;
     }
 
@@ -162,9 +164,11 @@ int bt_receive (struct bt_data *received_data, TickType_t delay) {
 
 int bt_send (struct bt_data received_data, TickType_t delay) {
     if ( xQueueSend(send_queue, (void *) &received_data, delay) == errQUEUE_FULL ) {
-        ESP_LOGE(BT_TAG, "Queue was full, so aborted.");
-        return -1;
+       // ESP_LOGE(BT_TAG, "Queue was full, so aborted.");
+       return -1;
     }
+
+    // xQueueOverwrite(send_queue, (const void *) &received_data);
 
     return 0;
 }

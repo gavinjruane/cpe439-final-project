@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdint.h>
 
@@ -9,18 +10,24 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "bluetooth.h"
+#include "motor_driver.h"
+
 /* DEFINES */
-#define HSR04_TIMEOUT_US 30000
-#define SAFE_DIST_CM 25.0f
+#define HSR04_TIMEOUT_US 3e6
+#define SAFE_DIST_CM 50.0f
 
 static const char *TAG = "HCSR04";
+
+volatile bool object_detected = 0;
 
 void ultrasonic_task(void *argument);
 
 TaskHandle_t ultrasonic_task_handle;
 extern TaskHandle_t event_loop_task_handle;
+extern volatile bool forward_movement;
 
-hcsr04_t sensor;
+extern hcsr04_t front_sensor;
 
 esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin)
 {
@@ -46,7 +53,7 @@ esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin
         NULL,
         1,
         NULL);
-    assert(res == pdTRUE);
+    assert(res == pdPASS);
 
     return ESP_OK;
 }
@@ -54,19 +61,41 @@ esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin
 void ultrasonic_task(void *arg)
 {
     static float dist_cm = 0.0f;
-    esp_err_t ret;
+    esp_err_t ret = ESP_FAIL;
     while (1)
     {
-        hcsr04_read_cm_filtered(&sensor, &dist_cm);
-        if (ret != ESP_OK)
+        ret = hcsr04_read_cm(&front_sensor, &dist_cm);
+        printf("Distance %.2f cm: STOP\r\n", dist_cm);
+
+        if ( ret == ESP_ERR_TIMEOUT ) {
+            ESP_LOGE("ultrasonic", "timeout error in ultasonic function");
+        } else if (ret != ESP_OK)
         {
-            ESP_LOGI("ultrasonic", "[err] in ultasonic function");
+            ESP_LOGE("ultrasonic", "[err] in ultasonic function");
         }
-        if (*dist_cm <= SAFE_DIST_CM)
+        
+        if (dist_cm <= SAFE_DIST_CM)
         {
-            xTaskNotifyGive(event_loop_task_handle);
+            // struct bt_data information = { 0 };
+            // char distance_data[64] = { 0 };
+            // snprintf(distance_data, sizeof(information),
+            //         "Obstacle %.2f cm: STOP\r\n", dist_cm);
+            // //ESP_LOGI("ultrasonic", information);
+
+            // strncpy(information.data, distance_data, sizeof(information.data));
+            // bt_send(information, 0);
+
+            // xTaskNotifyGive(event_loop_task_handle);
+            printf("Object detected\r\n");
+            object_detected = 1;
+            if (forward_movement)
+            {
+                motor_stop();
+            }
+        } else {
+            object_detected = 0;
         }
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
