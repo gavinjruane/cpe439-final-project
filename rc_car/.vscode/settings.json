@@ -4,5 +4,8 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=/home/gavinruane/Documents/Spring2026/cpe439/cpe439-final-project/rc_car/build"
-  ]
+  ],
+  "idf.currentSetup": "/home/gavinruane/.espressif/v6.0.1/esp-idf",
+  "idf.flashType": "UART",
+  "idf.port": "/dev/ttyUSB0"
 }
