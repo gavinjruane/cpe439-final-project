@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "assert.h"
 #include "ultrasonic.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -10,8 +11,16 @@
 
 /* DEFINES */
 #define HSR04_TIMEOUT_US 30000
+#define SAFE_DIST_CM 25.0f
 
 static const char *TAG = "HCSR04";
+
+void ultrasonic_task(void *argument);
+
+TaskHandle_t ultrasonic_task_handle;
+extern TaskHandle_t event_loop_task_handle;
+
+hcsr04_t sensor;
 
 esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin)
 {
@@ -29,7 +38,36 @@ esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin
     ESP_LOGI(TAG, "Intializaed HC-SR04: TRIG = %d, ECHO = %d",
              sensor->trig_pin, sensor->echo_pin);
 
+    /*  Make the new task! */
+    BaseType_t res = xTaskCreate(
+        &ultrasonic_task,
+        "Ultrasonic Task",
+        4096,
+        NULL,
+        1,
+        NULL);
+    assert(res == pdTRUE);
+
     return ESP_OK;
+}
+
+void ultrasonic_task(void *arg)
+{
+    static float dist_cm = 0.0f;
+    esp_err_t ret;
+    while (1)
+    {
+        hcsr04_read_cm_filtered(&sensor, &dist_cm);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGI("ultrasonic", "[err] in ultasonic function");
+        }
+        if (*dist_cm <= SAFE_DIST_CM)
+        {
+            xTaskNotifyGive(event_loop_task_handle);
+        }
+        vTaskDelay(1);
+    }
 }
 
 esp_err_t hcsr04_read_cm(hcsr04_t *sensor, float *distance_cm)
@@ -68,9 +106,7 @@ esp_err_t hcsr04_read_cm(hcsr04_t *sensor, float *distance_cm)
             return ESP_ERR_TIMEOUT;
         }
     }
-
     start_time = esp_timer_get_time();
-
     /*
      * Step 3:
      * Wait for ECHO to go LOW.

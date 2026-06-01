@@ -16,13 +16,12 @@
 #define LEFT "Left\r\n"
 #define RIGHT "Right\r\n"
 #define UNKNOWN "Unknown\r\n"
-#define SAFE_DIST_CM 25.0f
 
 static hcsr04_t front_sensor;
 
-void bt_sample_task(void *argument);
+void event_loop_task(void *argument);
 
-TaskHandle_t bt_sample_task_handle;
+TaskHandle_t event_loop_task_handle;
 
 void app_main(void)
 {
@@ -58,15 +57,15 @@ void app_main(void)
     motor_driver_init();
 
     result = xTaskCreate(
-        bt_sample_task,
-        "BT_Sample_Task",
+        event_loop_task,
+        "event_loop_task",
         8192,
         NULL,
         1,
-        &bt_sample_task_handle);
+        &event_loop_task_handle);
     if (result == pdFALSE)
     {
-        printf("Could not create bt_sample_task.\n");
+        printf("Could not create event_loop_task.\n");
         return;
     }
 
@@ -76,48 +75,34 @@ void app_main(void)
     }
 }
 
-void bt_sample_task(void *argument)
+void event_loop_task(void *argument)
 {
     struct bt_data data = {0};
 
     while (1)
     {
+
         if (bt_receive(&data, portMAX_DELAY) == -1)
         {
             printf("ERROR receiving data from queue.\n");
         }
         else
         {
-            printf("Data: %s, Length: %d\n", data.data, data.length);
-            struct bt_data response = {0};
-
-            float dist_cm = 0.0f;
-            esp_err_t dist_err = hcsr04_read_cm_filtered(&front_sensor, &dist_cm);
-
-            if (dist_err == ESP_OK)
-            {
-                printf("Distance: %.2f cm\n", dist_cm);
-            }
-            else
-            {
-                printf("Distance read failed\n");
-            }
-
             switch (data.data[0])
             {
             case 'w':
-                if (dist_err == ESP_OK && dist_cm < SAFE_DIST_CM)
+                if (ulTaskNotifyTake(pdTRUE, 0) >= 1)
                 {
-                    motor_stop();
                     snprintf(response.data, sizeof(response.data),
                              "Obstacle %.2f cm: STOP\r\n", dist_cm);
+                    motor_stop();
+                    strncpy(response.data, "Obstacle DETECTED!\r\n", sizeof(response.data));
                 }
                 else
                 {
                     motor_forward();
                     strncpy(response.data, FORWARD, sizeof(response.data));
                 }
-                response.data[strlen(FORWARD) + 1] = '\0';
                 break;
             case 'a':
                 strncpy(response.data, LEFT, 64);
@@ -141,7 +126,6 @@ void bt_sample_task(void *argument)
                 motor_stop();
                 break;
             }
-
             response.length = strlen(response.data);
 
             if (bt_send(response, portMAX_DELAY) == -1)
