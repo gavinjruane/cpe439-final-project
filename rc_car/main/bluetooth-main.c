@@ -43,9 +43,6 @@ void app_main(void) {
         return;
     }
 
-
-
-
     BaseType_t result = pdFALSE;
 
     if ( bt_init("ESP32_DEVICE") == -1 ) {

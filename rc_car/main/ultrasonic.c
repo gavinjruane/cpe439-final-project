@@ -8,8 +8,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-/* GPIO NEEDED */
-
 /* DEFINES */
 #define HSR04_TIMEOUT_US 30000
 
@@ -29,14 +27,15 @@ esp_err_t hcsr04_init(hcsr04_t *sensor, gpio_num_t trig_pin, gpio_num_t echo_pin
 
     gpio_set_level(sensor->trig_pin, 0);
     ESP_LOGI(TAG, "Intializaed HC-SR04: TRIG = %d, ECHO = %d",
-                sensor->trig_pin, sensor->echo_pin);
+             sensor->trig_pin, sensor->echo_pin);
 
     return ESP_OK;
 }
 
 esp_err_t hcsr04_read_cm(hcsr04_t *sensor, float *distance_cm)
 {
-    if (sensor == NULL || distance_cm == NULL) {
+    if (sensor == NULL || distance_cm == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -62,8 +61,10 @@ esp_err_t hcsr04_read_cm(hcsr04_t *sensor, float *distance_cm)
      */
     timeout_start = esp_timer_get_time();
 
-    while (gpio_get_level(sensor->echo_pin) == 0) {
-        if ((esp_timer_get_time() - timeout_start) > sensor->timeout_us) {
+    while (gpio_get_level(sensor->echo_pin) == 0)
+    {
+        if ((esp_timer_get_time() - timeout_start) > sensor->timeout_us)
+        {
             return ESP_ERR_TIMEOUT;
         }
     }
@@ -76,38 +77,41 @@ esp_err_t hcsr04_read_cm(hcsr04_t *sensor, float *distance_cm)
      */
     timeout_start = esp_timer_get_time();
 
-    while (gpio_get_level(sensor->echo_pin) == 1) {
-            if ((esp_timer_get_time() - timeout_start) > sensor->timeout_us) {
-                return ESP_ERR_TIMEOUT;
-            }
+    while (gpio_get_level(sensor->echo_pin) == 1)
+    {
+        if ((esp_timer_get_time() - timeout_start) > sensor->timeout_us)
+        {
+            return ESP_ERR_TIMEOUT;
         }
+    }
 
-        end_time = esp_timer_get_time();
+    end_time = esp_timer_get_time();
 
-        /*
-        * Step 4:
-        * Convert pulse width to centimeters.
-        *
-        * HC-SR04 common formula:
-        * distance_cm = pulse_width_us / 58.0
-        */
-        int64_t pulse_width_us = end_time - start_time;
+    /*
+     * Step 4:
+     * Convert pulse width to centimeters.
+     *
+     * HC-SR04 common formula:
+     * distance_cm = pulse_width_us / 58.0
+     */
+    int64_t pulse_width_us = end_time - start_time;
 
-        *distance_cm = pulse_width_us / 58.0f;
+    *distance_cm = pulse_width_us / 58.0f;
 
-        return ESP_OK;
+    return ESP_OK;
 }
-
 
 esp_err_t hcsr04_read_cm_filtered(hcsr04_t *sensor, float *distance_cm)
 {
     float samples[5];
     int valid_count = 0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++)
+    {
         float d = 0.0f;
 
-        if (hcsr04_read_cm(sensor, &d) == ESP_OK) {
+        if (hcsr04_read_cm(sensor, &d) == ESP_OK)
+        {
             samples[valid_count] = d;
             valid_count++;
         }
@@ -115,13 +119,15 @@ esp_err_t hcsr04_read_cm_filtered(hcsr04_t *sensor, float *distance_cm)
         vTaskDelay(pdMS_TO_TICKS(60));
     }
 
-    if (valid_count == 0) {
+    if (valid_count == 0)
+    {
         return ESP_ERR_TIMEOUT;
     }
 
     float sum = 0.0f;
 
-    for (int i = 0; i < valid_count; i++) {
+    for (int i = 0; i < valid_count; i++)
+    {
         sum += samples[i];
     }
 
@@ -129,4 +135,3 @@ esp_err_t hcsr04_read_cm_filtered(hcsr04_t *sensor, float *distance_cm)
 
     return ESP_OK;
 }
-
