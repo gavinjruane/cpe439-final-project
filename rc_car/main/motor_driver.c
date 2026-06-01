@@ -167,6 +167,7 @@ esp_err_t motor_driver_init(void)
 
     motor_enable();
     motor_stop();
+    ESP_LOGI(TAG, "Initialization Finshed!\r\n");
 
     return ESP_OK;
 }
