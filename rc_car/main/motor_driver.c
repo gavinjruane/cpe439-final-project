@@ -7,7 +7,6 @@
 
 static const char *TAG = "motor_driver";
 
-/* Change these pins to match your wiring */
 #define STBY_1 22
 #define STBY_2 27
 
@@ -22,8 +21,9 @@ static const char *TAG = "motor_driver";
 #define FR_IN2 4
 
 /* Motor Driver A-Left */
-#define BL_PWM 34
-#define BL_IN1 35
+/* 34 and 35 cannot be used as GPIO outputs */
+#define BL_PWM 12
+#define BL_IN1 14
 #define BL_IN2 32
 
 /* Motor Driver B-Left */
@@ -156,7 +156,8 @@ esp_err_t motor_driver_init(void)
         .timer_num = LEDC_TIMER_0,
         .duty_resolution = PWM_RESOLUTION,
         .freq_hz = PWM_FREQ_HZ,
-        .clk_cfg = LEDC_AUTO_CLK};
+        .clk_cfg = LEDC_AUTO_CLK
+    };
 
     ESP_ERROR_CHECK(ledc_timer_config(&timer_config));
 
